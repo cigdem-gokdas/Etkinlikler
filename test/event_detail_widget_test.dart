@@ -8,6 +8,7 @@ import 'package:etkinlik_kesif/features/events/presentation/widgets/event_image.
 import 'package:etkinlik_kesif/features/favorites/controllers/favorites_controller.dart';
 import 'package:etkinlik_kesif/features/favorites/models/favorite.dart';
 import 'package:flutter/material.dart';
+import 'package:etkinlik_kesif/features/events/presentation/widgets/adaptive_event_composition.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -42,7 +43,9 @@ void main() {
     final list = find.byKey(const PageStorageKey('events-list'));
     final scrollable = find.descendant(
       of: list,
-      matching: find.byType(Scrollable),
+      matching: find.byWidgetPredicate(
+        (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+      ),
     );
     final target = page.items.singleWhere((e) => e.id == 'evt-011');
     await tester.scrollUntilVisible(
@@ -194,7 +197,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Konum belirtilmedi'), findsNothing);
-        expect(find.byType(EventImage), findsOneWidget);
+        expect(find.byType(AdaptiveEventComposition), findsOneWidget);
         await tester.drag(
           find.byKey(const ValueKey('event-detail-scroll')),
           const Offset(0, -1000),

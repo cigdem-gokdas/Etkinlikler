@@ -2,7 +2,40 @@
 
 MOBILAB'ın 7 günlük Flutter görevi için gerçek etkinlik API'sini kullanan mobil uygulama. Giriş yapmadan keşif, sunucuda arama/kategori filtresi, %70 eşikli sayfalama, detay ve hesap bazlı Supabase favorileri içerir.
 
-**Aşama 5:** Ortak statik skeleton sistemi ve yükleme deneyimi tamamlandı. **Son yerel denetim — 24 Ekim 2026:** kurtarma klonunda Git geçmişi, aktarım ve secret kontrolleri başarılı; 180 test geçti, analiz temiz. Önceki metadata engeli ayrı klonla aşıldı. Gerçek OTP/session/favori/RLS kabulü ve push sonrası GitHub Actions koşusu henüz doğrulanmadı. Commit/push yapılmadı.
+**Son ürün deneyimi:** Her cold start’ta 2.2 saniyelik özgün logo intro’su, yüzen navigasyon, kaydırmayla daralan büyük başlıklar ve tek fotoğraf yüzeyli sinematik etkinlik detayı. Güncel kaynak/Git çalışma ağacı `Etkinlikler` klasöründedir. Bu son geliştirmede commit/push yapılmadı.
+
+## Son tasarım ve hareket
+
+Orijinal yeşil 3D M PNG’si `assets/branding/mobilab_logo.png` olarak değiştirilmeden kullanılır. Perspective/scale yaklaşma, kontrollü overshoot ve çok küçük sarsıntıyı ince dallanan `CustomPainter` çatlakları izler. 2.2 saniyelik intro uygulama kökünde bir kez çalışır: cold start’ta tekrar oynar; sekme, route, hot reload veya kısa süreli arka plan dönüşünde yeniden başlamaz. Reduced motion ile 360ms sade fade kullanılır. API/Supabase hazırlığı intro ile paraleldir; intro ağ yanıtını beklemez. Native başlangıç arka planı aynı kırık beyaz tondadır.
+
+İlk kullanımda **Intro → Onboarding 1 → Onboarding 2 → Keşfet**; `onboarding_completed_v1` tamamlandıysa **Intro → Keşfet** akışı kullanılır. Auth oturumu korunur. Kayıtlı tercihi ve oturumu silmeden, yalnızca debug’da önizlemek için:
+
+```sh
+flutter run -d "iPhone 17" --dart-define-from-file=config/supabase.local.json --dart-define=FORCE_ONBOARDING=true
+```
+
+Keşfet/Favoriler alt barı yatay margin, hafif gölge ve SafeArea ile ayrılır; içerik için yer ayırdığı için son satırı kapatmaz. Klavye açıldığında gizlenir. `IndexedStack` sekme, liste, filtre ve scroll state’ini korur. Her iki listenin büyük başlığı `SliverPersistentHeader` geometrisiyle 34px’ten kompakt 20px’e daralır. Arama/kategori ayrı sliver’da daha yavaş yükselip tamamen kliplenir; ters kaydırmayla geri gelir. TextField aynı ağaçta kalır. 350ms debounce, pull-to-refresh ve güncel scroll extent’in %70’inde pagination korunur.
+
+### Tek yüzeyli sinematik detay
+
+Detayda ayrı dikdörtgen foreground fotoğrafı yoktur. API’nin gerçek `imageUrl` fotoğrafı ekranı kaplayan tek atmosferik yüzeydir; başlık, tarih/saat, konum, kategori, varsa düzenleyen ve tam açıklama doğrudan bu yüzeye yerleşir. `GET /events/{id}` güncel yanıtı cached liste bilgisinin önüne geçer. Olmayan organizer, bilet veya fiyat üretilmez.
+
+Gerçek oran, aynı `ImageProvider` / `ImageStream` tarafından decode edilen piksel boyutlarından bulunur: landscape ≥1.3, portrait <0.85, arası square. URL adına göre tahmin veya ek metadata HTTP isteği yoktur. Tek `RawImage`, Flutter ImageCache’i ve en fazla 1200×1600 decode sınırı kullanılır; düşük çözünürlük büyütülerek decode edilmez. URL değişince eski listener çıkarılır ve generation kontrolü geç yanıtları reddeder.
+
+Yatay fotoğrafı dikey ekrana doldururken yanlardan kayıp geometrik olarak kaçınılmazdır. Son tasarım kararı bu crop’u bilinçli kabul eder; tek `BoxFit.cover` yüzeyi oranı bozmadan merkezden kırpar, ek zoom uygulamaz. Önceki beğenilen zümrüt/tonal atmosfer ve hafif sigma 5 blur korunur. Karede sigma 3, portrede sigma 1 kullanılır. Focal point varmış gibi davranılmaz. Sert kenarlı ikinci kopya veya stok arka plan yoktur.
+
+Sabit koyu scrim, en parlak beyaz fotoğrafta bile beyaz metin için en az 4.5:1 kontrast sağlar. Açıklama hafif transparan yüzeydedir, satır sınırı yoktur. Tek scroll bütün uzun içeriğe eriştirir; üst geri/kalp ve alt güvenli alan korunur. Null/bozuk fotoğrafta nötr koyu yüzey ve gerçek bilgiler kullanılabilir kalır. Detay geçişi 220ms fade’dir; tam ekran crop’a zorlanan Hero esnemesi kullanılmaz. Reduced motion’da route süresi sıfırdır.
+
+Ana ekran/onboarding/auth tema stilini `AnnotatedRegion<SystemUiOverlayStyle>` belirler; fotoğraf detayının AppBar’ı açık ikonları açıkça ister. Detaydan geri dönünce açık temanın koyu, koyu temanın açık durum çubuğu geri gelir. Intro kendi açık zeminine uygun koyu ikonları kullanır.
+
+**Son doğrulama: 209/209 test başarılı; `flutter analyze`: No issues found.**
+
+| Tek yüzeyli gerçek API detayı | Açık temada geri dönüş | Daralmış başlık |
+| --- | --- | --- |
+| <img src="docs/reports/final-motion/05-single-surface-live.png" width="220" alt="Tek fotoğraf yüzeyli State Management detayı"> | <img src="docs/reports/final-motion/06-back-light-status.png" width="220" alt="Detaydan dönünce koyu status bar"> | <img src="docs/reports/final-motion/10-collapsed-header.png" width="220" alt="Arama gizlenmiş kompakt Keşfet başlığı"> |
+
+[Son teknik rapor, test kapsamı ve simülatör kanıtları](docs/reports/final-motion/rapor.md).
+
 
 ## Gerçek ekran görüntüleri
 
@@ -22,9 +55,9 @@ Aşama raporları geliştirme sırasında alınan tarihî kayıtlardır. Güncel
 
 Aramada mevcut 350ms debounce korunur. Yazarken eski sonuçlar gizlenir; debounce sırasında yeni skeleton kurulmaz. İstek başlayınca tek statik yükleme ağacı kullanılır. Frame oluşmadan tamamlanan hızlı yanıt skeleton flaşı üretmez; ek UI timer'ı veya cache katmanı eklenmedi. Pagination gerçek listeyi koruyup yalnızca küçük footer yüklemesini gösterir. Favori ekleme/kaldırmada yalnızca ilgili kalp pending olur.
 
-Detayda bilgi yoksa 16:9 görsel ve metin skeleton'ı; mevcut Event varsa gerçek başlık/fotoğraf hemen gösterilir, eksik açıklama bölümü yükleme bildirimi alır. Null/bozuk görsel aynı boyutta nötr placeholder kullanır; URL/key/cache davranışı korunur. OTP için tam ekran skeleton kullanılmaz, mevcut buton loading'i kalır.
+Detayda bilgi yoksa atmosferik nötr yüzey üzerinde metin skeleton’ı; mevcut Event varsa gerçek başlık/fotoğraf hemen gösterilir, eksik açıklama bölümü yükleme bildirimi alır. Null/bozuk görsel aynı boyutta nötr placeholder kullanır; URL/key/cache davranışı korunur. OTP için tam ekran skeleton kullanılmaz, mevcut buton loading'i kalır.
 
-Skeleton'lar etkileşimsizdir. Ekran okuyucu her bloğu değil tek anlamlı yükleme etiketini alır. Shimmer, gradient, animasyon, overlay veya yeni paket eklenmedi; reduced motion korunur.
+Skeleton'lar etkileşimsizdir. Ekran okuyucu her bloğu değil tek anlamlı yükleme etiketini alır. Skeleton üzerinde shimmer veya animasyon yoktur; yeni paket eklenmedi.
 
 | Keşfet loading — debug | Detay içeriği — debug | Favoriler loading — debug |
 | --- | --- | --- |
@@ -54,20 +87,20 @@ flutter run -d "iPhone 17" -t tool/skeleton_preview.dart --dart-define=PREVIEW_D
 - Kalıcı açık/koyu tema; tercih yoksa sistem teması; reduced motion'a uyan kısa Hero.
 - Secretsiz analyze/test GitHub Actions dosyası.
 
-Flutter **3.47.7 stable**, Dart **3.13.5**, Material 3, null safety. Paketler: `http`, `intl`, SDK `flutter_localizations`, `supabase_flutter` **2.18.3**, `shared_preferences` **2.5.6**. Aşama 4/5 için yeni paket eklenmedi. ChangeNotifier / ListenableBuilder ve constructor injection kullanılır.
+Flutter **3.47.7 stable**, Dart **3.13.5**, Material 3, null safety. Paketler: `http`, `intl`, SDK `flutter_localizations`, `supabase_flutter` **2.18.3**, `shared_preferences` **2.5.6**. Son tasarımda da yeni paket eklenmedi. ChangeNotifier / ListenableBuilder ve constructor injection kullanılır.
 
 ## Kurulum ve çalıştırma
 
 [Resmî Flutter kurulum rehberini](https://docs.flutter.dev/install) izleyip SDK’nin `bin` dizinini PATH’e ekleyin. Yerel doğrulama ve CI ile aynı ortam için [SDK arşivinden](https://docs.flutter.dev/install/archive) Flutter **3.47.7 stable** kullanın; Dart **3.13.5** SDK ile birlikte gelir. iPhone Simulator için macOS, Xcode ve iOS Simulator araçlarını [resmî iOS kurulum rehberine](https://docs.flutter.dev/platform-integration/ios/setup) göre hazırlayın.
 
-Proje dosyaları GitHub’a gönderildikten sonra yeni bir checkout oluşturmak için:
+Yeni bir checkout oluşturmak için:
 
 ```sh
 git clone https://github.com/cigdem-gokdas/Etkinlikler.git Etkinlikler
 cd Etkinlikler
 ```
 
-Mevcut checkout’ta `pubspec.yaml` dosyasının bulunduğu proje kökünden başlayın. Son denetimin yapıldığı yerel checkout’ın adı `Etkinlikler-git-kurtarma`dır. Ardından:
+Mevcut checkout’ta `pubspec.yaml` dosyasının bulunduğu proje kökünden başlayın. Son geliştirme ve simülatör doğrulaması orijinal `Etkinlikler` checkout’ında yapıldı; `.git` geçmişi bu klasörde korunuyor. Ardından:
 
 ```sh
 flutter --version
@@ -81,7 +114,7 @@ Xcode 26’da Simulator’ı `open -a Simulator` ile açabilirsiniz. `-d` değer
 
 ### Supabase yapılandırması ve OTP
 
-Yerel dosya yoksa `config/supabase.example.json` dosyasını `config/supabase.local.json` adına kopyalayıp placeholder’ları kendi proje URL’niz ve publishable anahtarınızla doldurun. **Mevcut yerel dosyanın üzerine yazmayın.** Gerçek config kurtarma klonuna aktarılmadı ve Git’e eklenmedi. Başka bir dizindeki mevcut config de tam dosya yolu verilerek kullanılabilir.
+Yerel dosya yoksa `config/supabase.example.json` dosyasını `config/supabase.local.json` adına kopyalayıp placeholder’ları kendi proje URL’niz ve publishable anahtarınızla doldurun. **Mevcut yerel dosyanın üzerine yazmayın.** Gerçek yerel config Git’e eklenmez. Başka bir dizindeki mevcut config de tam dosya yolu verilerek kullanılabilir.
 
 ```json
 {
@@ -142,7 +175,7 @@ Kategori değerleri API'deki haliyle (`Workshop`, `Yarışma` gibi) gönderilir.
 
 Arama 350ms debounce kullanır. Her değişiklikte generation hemen artar; debounce beklerken bile eski yanıt yeni sorguyu ezemez. Arama/kategori birlikte sunucuya gider. Filtre değişiminde liste ve pagination sıfırlanır, page 1 istenir ve scroll başa alınır. Kategori yükleme/hata/retry durumu listeden bağımsızdır.
 
-`ListView.builder` + dispose edilen ScrollController kullanılır; görünür scrollbar yoktur. `pixels >= maxScrollExtent * 0.70` koşulunda devam yüklenir. Controller şu korumaları uygular:
+`CustomScrollView` / `SliverList.builder` + dispose edilen ScrollController kullanılır; görünür scrollbar yoktur. `pixels >= maxScrollExtent * 0.70` koşulunda devam yüklenir. Controller şu korumaları uygular:
 
 - İlk yükleme veya loadMore devam ederken ikinci devam isteği açılmaz.
 - Başarısız sayfada page ilerlemez; hata sonrası otomatik retry fırtınası olmaz, footer aynı sayfayı yeniden deneyebilir.
@@ -152,13 +185,13 @@ Arama 350ms debounce kullanır. Her değişiklikte generation hemen artar; debou
 - Pull-to-refresh page 1'le yeniler; hata sırasında görünür liste korunur.
 - İlk sayfa viewport'u doldurmazsa en fazla üç ek otomatik sayfa alınır. Hâlâ dolmuyorsa sade “Diğer etkinlikleri yükle” kontrolü devam etmeyi sağlar; otomatik sonsuz döngü oluşmaz.
 
-Detay gerçek endpointi kullanır; 404/genel hata/timeout/retry ayrıdır. Bellekteki temel içerik yükleme sırasında kalabilir. Null/bozuk görsel nötr placeholder olur. Açıklama tam seçilebilir metindir; HTML çalıştırılmaz. Fotoğraflar yalnızca API `imageUrl` alanından gelir. Liste 288px, detay 800px decode genişliği ve Flutter bellek ImageCache kullanır; disk cache paketi yoktur. API'de bulunmayan bilet/fiyat bilgisi üretilmez.
+Detay gerçek endpointi kullanır; 404/genel hata/timeout/retry ayrıdır. Bellekteki temel içerik yükleme sırasında kalabilir. Null/bozuk görsel nötr placeholder olur. Açıklama tam seçilebilir metindir; HTML çalıştırılmaz. Fotoğraflar yalnızca API `imageUrl` alanından gelir. Liste 288px, detay en fazla 1200×1600px decode sınırı ve Flutter bellek ImageCache kullanır; disk cache paketi yoktur. API'de bulunmayan bilet/fiyat bilgisi üretilmez.
 
 ## Tema, onboarding ve mimari
 
 Tema tercihi `SharedPreferencesAsync` ile `theme_mode_v1` anahtarına yazılır. Tercih yok/geçersizse sistem teması kullanılır; kullanıcı açık/koyu seçince sonraki açılışta korunur. Yazmalar sıralanır; gecikmiş preference okuması yeni seçimi ezemez. Yazma hatasında aktif tema korunur ve kullanıcıya kısa mesaj gösterilir. İkincil metin kontrastı iyileştirildi; iki temada metin renkleri en az 4.5 oranıyla test edildi.
 
-Onboarding iki sayfadır. Geçme/tamamlama yalnızca `onboarding_completed_v1` anahtarını yazar; sonraki açılışta Keşfet açılır. Auth session anahtarları silinmez, giriş zorunlu değildir. Hero aynı gerçek görsel için kısa geçiştir; kaynak/ID tag'leri çakışmaz. Reduced motion / accessible navigation tercihinde kapalıdır.
+Onboarding iki sayfadır. Geçme/tamamlama yalnızca `onboarding_completed_v1` anahtarını yazar; sonraki açılışta Keşfet açılır. Auth session anahtarları silinmez, giriş zorunlu değildir. Liste Hero tag’leri kaynak/ID ile benzersizdir. Tek yüzeyli detay kısa fade kullanır; reduced motion / accessible navigation tercihinde route hareketi kapalıdır.
 
 ```text
 lib/
@@ -190,19 +223,17 @@ flutter analyze
 flutter test
 ```
 
-**24 Ekim 2026’da kurtarma klonunda yeniden çalıştırıldı: 180/180 test başarılı; flutter analyze: No issues found.** Aşama 4'teki 158 senaryo korundu; 22 skeleton testi eklendi. İki eski loading testinin spinner beklentisi yeni skeleton davranışına uyarlandı; senaryolar silinmedi. Önceki kapsam: Uri/kategori modeli, 350ms debounce, stale response, birleşik filtre, %69/%70 sınırı, duplicate/pending, total/hasMore, hata/retry, refresh, viewport doldurma sınırı, scroll/sekme/favori tutarlılığı, tema kalıcılığı/yarışları, iki temada ekran akışları ve kontrast.
+Önceki 180 test korundu. Intro, görsel metadata/cache, tek yüzey kompozisyonu, header/focus, SafeArea/keyboard ve status bar regresyonları eklendi. Güncel toplam ve çalıştırılan son komutların sonucu [final raporundadır](docs/reports/final-motion/rapor.md). Testler silinmedi; liste seçicileri iç içe sliver scroll’larına, görsel beklentileri son tek yüzey kararına uyarlandı.
 
-Yeni kapsam: ilk yükleme/gerçek içerik geçişi, kategori loading, debounce ve stale UI, pagination sırasında liste, detay/cached veri/error/404, auth A/B/favori loading ve mutation, tek semantics etiketi, null/bozuk görsel, 320/402/1440px boyutlar ve iki tema.
+Kapsam: Uri/kategori modeli, 350ms debounce, stale response, birleşik filtre, %69/%70 sınırı, duplicate/pending, total/hasMore, hata/retry, refresh, viewport doldurma sınırı, scroll/sekme/favori tutarlılığı; tema kalıcılığı/yarışları; skeleton, cached detay/error/404; auth A/B/favori loading/mutation; gerçek piksel oranları (16:9, 4:3, 1:1, 3:4, 9:16), düşük çözünürlük, null/bozuk fotoğraf, tek image stream; büyük yazı/uzun metin; intro cold start/reduced motion/dispose; iOS durum çubuğunun detay ve auth dönüşlerinde geri yüklenmesi.
 
 Unit/widget testleri fake repository ve MockClient ile çalışır; gerçek SMTP/production Supabase/internet bağlantısı gerektirmez. Gerçek OTP/session restore/RLS veya native pagination testi geçtiği bu sayıyla iddia edilmez.
 
-[Workflow](.github/workflows/flutter_ci.yml): main push ve pull request → checkout → Flutter **3.47.7 stable** → pub get → analyze → test. Yalnızca `contents: read`, checkout credential persistence kapalıdır. Local config, service-role, Resend key veya gerçek kullanıcı bilgisi kullanılmaz. YAML ve beklenen adımlar yerelde doğrulandı. Kurulum biçimi [flutter-action resmi deposuna](https://github.com/subosito/flutter-action) dayanır. **GitHub üzerinde çalıştırılmadı**; kullanıcı push yaptıktan sonra Actions sonucu görülmelidir.
+[Workflow](.github/workflows/flutter_ci.yml): main push ve pull request → checkout → Flutter **3.47.7 stable** → pub get → analyze → test. Yalnızca `contents: read`, checkout credential persistence kapalıdır. Local config, service-role, Resend key veya gerçek kullanıcı bilgisi kullanılmaz. YAML ve beklenen adımlar yerelde doğrulandı. Kurulum biçimi [flutter-action resmi deposuna](https://github.com/subosito/flutter-action) dayanır. Bu son değişiklikler push edilmediğinden bunlara ait GitHub CI koşusu yoktur; yerel analyze/test sonuçları raporlanır.
 
 ## Git teslim durumu ve bilinen kısıtlamalar
 
-Kullanıcı remote repository’yi ayrı `Etkinlikler-git-kurtarma` klasörüne klonlayıp Flutter projesini aktardı. Son denetimde `main`, origin `https://github.com/cigdem-gokdas/Etkinlikler.git` ve ilk commit `0010faf — first commit` doğrulandı. Orijinal klasördeki metadata kaybının nedeni belirlenemedi; kurtarma klonunun geçmişi korunuyor.
-
-Düzeltmeler öncesinde 224 staged dosyanın tamamı orijinal dosyalarla birebir eşleşti; beklenmeyen aktarım kaybı, staged silme veya conflict marker bulunmadı. Staged metinler ve erişilebilir Git geçmişinde gerçek credential saptanmadı. 28 rapor PNG’sinin tamamı görsel olarak incelendi; kişisel e-posta/OTP/token görünmüyor. Bu içerik ve kalıp taraması bütün olası secret türlerini kesin olarak dışlamaz.
+Git metadata kurtarma işlemi tamamlandı ve doğrulanan geçmiş orijinal `Etkinlikler/.git` altına geri alındı. Branch `main`, origin `https://github.com/cigdem-gokdas/Etkinlikler.git`, mevcut HEAD `3f9178f — mobilab etkinlikler mvp`; önceki `0010faf — first commit` korunuyor. O MVP daha önce kullanıcı isteğiyle yayınlandı. Son motion/polish değişiklikleri çalışma ağacındadır; otomatik stage/commit/push yapılmadı.
 
 Yerel config, `.env*`, anahtar dosyaları ve derleme çıktıları ignore kapsamındadır. Yeni değişiklikleri stage etmeden ve GitHub’a göndermeden önce hem çalışma ağacını hem staged içeriği inceleyin:
 
@@ -215,9 +246,9 @@ git check-ignore -v config/supabase.local.json
 git ls-files config/supabase.local.json
 ```
 
-Son komut boş dönmeli. Bu belge düzeltmeleri stage edilmedi; önceki staged snapshot, branch ve geçmiş korundu. Commit/push yapılmadı. [Git kurtarma rehberi](docs/git-kurtarma.md) önceki metadata kaybının tarihî referansıdır; mevcut klonun yeniden kurtarılması gerekmiyor.
+Son komut boş dönmeli. [Git kurtarma rehberi](docs/git-kurtarma.md) önceki metadata kaybının tarihî referansıdır.
 
-Önceki iPhone 17 / iOS 26.3, Xcode 26.3 gözlemleri aşama raporlarındadır. Orijinal Desktop dizininde Xcode status 255 görülünce kaynaklar geçici `/private/tmp/mobilab-ios-validation` kopyasında derlenip açılmıştı. O oturumlarda gerçek API listesi/arama/kategori/detay ve geri navigasyonu gözlendi; %69/%70 sınırı widget testleriyle ölçüldü. Son kurtarma klonu denetiminde native build veya Simulator koşusu tekrarlanmadı; önceki Desktop hatasının bu klonda devam ettiği varsayılmıyor.
+Desktop/File Provider’ın üretilen `Flutter.framework` klasörüne eklediği Finder metadata’sı iOS codesign 255 hatasına yol açıyordu. Bu makinede yalnızca yerel `build` yolu Library/Caches altına yönlendirildi; kaynak ve Git `Etkinlikler` içinde kaldı. Bu yerel cache düzeni repoya dahil değildir. Son iPhone 17 build ve görsel gözlemler [final raporunda](docs/reports/final-motion/rapor.md) yer alır.
 
 Manuel kabul bekleyenler:
 
@@ -225,7 +256,7 @@ Manuel kabul bekleyenler:
 - Gerçek session'ın tam yeniden açılışta dönmesi, çıkışta temizlenmesi; favori kalıcılığı ve hesap A/B ayrımı.
 - Canlı RLS: A yalnızca kendi SELECT/INSERT/DELETE işlemlerini yapabilmeli; B'nin kaydı değişmemeli, anon erişim olmamalı. Normal kullanıcı session'larıyla test edin; service-role RLS'yi doğrulamaz.
 - Gerçek cihaz/Android testi yapılmadı; Android SDK yok.
-- GitHub Actions’ın kullanıcı push’u sonrası gerçek çalışması; kurtarma klonunda native build/Simulator ve diğer platform kontrolleri.
+- Son değişikliklerin push sonrası GitHub Actions koşusu ve diğer platform kontrolleri.
 
 Son gözlemler ve kullanıcı test sırası [Aşama 5 raporunda](docs/reports/asama5/rapor.md).
 

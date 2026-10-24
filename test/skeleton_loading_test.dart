@@ -184,7 +184,12 @@ void main() {
       final list = find.byKey(const PageStorageKey('events-list'));
       final position = tester
           .state<ScrollableState>(
-            find.descendant(of: list, matching: find.byType(Scrollable)),
+            find.descendant(
+              of: list,
+              matching: find.byWidgetPredicate(
+                (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+              ),
+            ),
           )
           .position;
       final before = position.maxScrollExtent * .70;

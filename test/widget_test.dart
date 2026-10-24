@@ -104,7 +104,7 @@ void main() {
       await tester.pumpWidget(EtkinlikKesifApp(repository: repository));
       await tester.pumpAndSettle();
       repository.handler = () async => throw const ApiException('Zaman aşımı.');
-      await tester.drag(find.byType(ListView), const Offset(0, 350));
+      await tester.drag(find.byKey(const PageStorageKey('events-list')), const Offset(0, 350));
       await tester.pumpAndSettle();
       expect(repository.calls, 2);
       expect(find.text('Sky Lab Tanışma Kahvaltısı'), findsOneWidget);

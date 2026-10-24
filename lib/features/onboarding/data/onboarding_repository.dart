@@ -18,3 +18,11 @@ class PreferencesOnboardingRepository implements OnboardingRepository {
   @override
   Future<void> complete() => _preferences.setBool(completedKey, true);
 }
+
+/// Debug preview only: never reads or modifies persisted onboarding/auth state.
+class PreviewOnboardingRepository implements OnboardingRepository {
+  @override
+  Future<bool> isCompleted() async => false;
+  @override
+  Future<void> complete() async {}
+}

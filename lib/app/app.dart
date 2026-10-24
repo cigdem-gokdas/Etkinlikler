@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
 
@@ -23,6 +24,7 @@ import '../features/favorites/presentation/favorites_screen.dart';
 import '../features/onboarding/data/onboarding_repository.dart';
 import '../features/onboarding/presentation/onboarding_gate.dart';
 import 'theme/app_theme.dart';
+import 'widgets/floating_navigation.dart';
 import 'theme/theme_repository.dart';
 import 'theme/theme_controller.dart';
 
@@ -106,6 +108,12 @@ class _EtkinlikKesifAppState extends State<EtkinlikKesifApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Etkinlik Keşif',
+    builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+      value: Theme.of(context).brightness == Brightness.dark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
+      child: child!,
+    ),
     debugShowCheckedModeBanner: false,
     locale: const Locale('tr', 'TR'),
     supportedLocales: const [Locale('tr', 'TR')],
@@ -172,13 +180,14 @@ class _HomeState extends State<_Home> {
         reverseTransitionDuration: reducedMotion
             ? Duration.zero
             : const Duration(milliseconds: 180),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(opacity: animation, child: child),
         pageBuilder: (context, animation, secondaryAnimation) =>
             EventDetailScreen(
               eventId: eventId,
               repository: widget.eventsRepository,
               initialEvent: initialEvent,
               initialImageUrl: imageUrl,
-              imageHeroTag: 'event-image:$source:$eventId',
               favorites: widget.favorites,
               auth: widget.auth,
               onSignIn: () =>
@@ -231,150 +240,156 @@ class _HomeState extends State<_Home> {
       final theme = Theme.of(context);
       final dark = theme.brightness == Brightness.dark;
       final favorites = widget.favorites;
-      return Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.page,
-                  AppSpacing.page,
-                  AppSpacing.medium,
-                  AppSpacing.medium,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Semantics(
-                        header: true,
-                        child: Text(
-                          _selectedIndex == 0 ? 'Keşfet' : 'Favoriler',
-                          style: theme.textTheme.headlineLarge,
-                        ),
-                      ),
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                if (_selectedIndex == 0 && favorites.errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.page,
                     ),
-                    IconButton(
-                      tooltip: widget.auth.user == null
-                          ? 'Giriş yap'
-                          : 'Hesabım',
-                      onPressed: _openAccount,
-                      color: theme.colorScheme.onSurfaceVariant,
-                      icon: const Icon(Icons.person_outline),
-                    ),
-                    IconButton(
-                      tooltip: dark ? 'Açık temaya geç' : 'Koyu temaya geç',
-                      onPressed: () async {
-                        final saved = await widget.onToggleTheme(
-                          theme.brightness,
-                        );
-                        if (!saved && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Tema tercihi kaydedilemedi.'),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              favorites.errorMessage!,
+                              style: theme.textTheme.bodySmall,
                             ),
-                          );
-                        }
-                      },
-                      color: theme.colorScheme.onSurfaceVariant,
-                      icon: Icon(
-                        dark
-                            ? Icons.light_mode_outlined
-                            : Icons.dark_mode_outlined,
+                          ),
+                          TextButton(
+                            onPressed: favorites.requiresSignIn
+                                ? () => _openSignIn(reauthenticate: true)
+                                : favorites.load,
+                            child: Text(
+                              favorites.requiresSignIn
+                                  ? 'Giriş yap'
+                                  : 'Tekrar dene',
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              if (_selectedIndex == 0 && favorites.errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.page,
                   ),
-                  child: Semantics(
-                    liveRegion: true,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            favorites.errorMessage!,
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: favorites.requiresSignIn
-                              ? () => _openSignIn(reauthenticate: true)
-                              : favorites.load,
-                          child: Text(
-                            favorites.requiresSignIn
+                Expanded(
+                  child: IndexedStack(
+                    index: _selectedIndex,
+                    children: [
+                      ExploreScreen(
+                        controller: widget.events,
+                        headerActions: [
+                          IconButton(
+                            tooltip: widget.auth.user == null
                                 ? 'Giriş yap'
-                                : 'Tekrar dene',
+                                : 'Hesabım',
+                            onPressed: _openAccount,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            icon: const Icon(Icons.person_outline),
                           ),
+                          IconButton(
+                            tooltip: dark
+                                ? 'Açık temaya geç'
+                                : 'Koyu temaya geç',
+                            onPressed: () async {
+                              final saved = await widget.onToggleTheme(
+                                theme.brightness,
+                              );
+                              if (!saved && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Tema tercihi kaydedilemedi.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            color: theme.colorScheme.onSurfaceVariant,
+                            icon: Icon(
+                              dark
+                                  ? Icons.light_mode_outlined
+                                  : Icons.dark_mode_outlined,
+                            ),
+                          ),
+                        ],
+                        eventBuilder: (context, event) => EventRow(
+                          key: ValueKey(event.id),
+                          event: event,
+                          onTap: () => _openDetail(
+                            event.id,
+                            initialEvent: event,
+                            imageUrl: event.imageUrl,
+                            source: 'explore',
+                          ),
+                          imageHeroTag: 'event-image:explore:${event.id}',
+                          showFavorite: true,
+                          isFavorite: favorites.contains(event.id),
+                          isFavoriteBusy: favorites.isPending(event.id),
+                          onFavorite: widget.auth.user == null
+                              ? () => _openSignIn()
+                              : favorites.requiresSignIn
+                              ? () => _openSignIn(reauthenticate: true)
+                              : favorites.canMutate
+                              ? () => favorites.toggle(event)
+                              : null,
                         ),
-                      ],
-                    ),
+                      ),
+                      FavoritesScreen(
+                        controller: favorites,
+                        headerActions: [
+                          IconButton(
+                            tooltip: widget.auth.user == null
+                                ? 'Giriş yap'
+                                : 'Hesabım',
+                            onPressed: _openAccount,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            icon: const Icon(Icons.person_outline),
+                          ),
+                          IconButton(
+                            tooltip: dark
+                                ? 'Açık temaya geç'
+                                : 'Koyu temaya geç',
+                            onPressed: () async {
+                              final saved = await widget.onToggleTheme(
+                                theme.brightness,
+                              );
+                              if (!saved && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Tema tercihi kaydedilemedi.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            color: theme.colorScheme.onSurfaceVariant,
+                            icon: Icon(
+                              dark
+                                  ? Icons.light_mode_outlined
+                                  : Icons.dark_mode_outlined,
+                            ),
+                          ),
+                        ],
+                        onOpenEvent: _openFavoriteDetail,
+                        onSignIn: () => _openSignIn(
+                          reauthenticate: favorites.requiresSignIn,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              Expanded(
-                child: IndexedStack(
-                  index: _selectedIndex,
-                  children: [
-                    ExploreScreen(
-                      controller: widget.events,
-                      eventBuilder: (context, event) => EventRow(
-                        key: ValueKey(event.id),
-                        event: event,
-                        onTap: () => _openDetail(
-                          event.id,
-                          initialEvent: event,
-                          imageUrl: event.imageUrl,
-                          source: 'explore',
-                        ),
-                        imageHeroTag: 'event-image:explore:${event.id}',
-                        showFavorite: true,
-                        isFavorite: favorites.contains(event.id),
-                        isFavoriteBusy: favorites.isPending(event.id),
-                        onFavorite: widget.auth.user == null
-                            ? () => _openSignIn()
-                            : favorites.requiresSignIn
-                            ? () => _openSignIn(reauthenticate: true)
-                            : favorites.canMutate
-                            ? () => favorites.toggle(event)
-                            : null,
-                      ),
-                    ),
-                    FavoritesScreen(
-                      controller: favorites,
-                      onOpenEvent: _openFavoriteDetail,
-                      onSignIn: () =>
-                          _openSignIn(reauthenticate: favorites.requiresSignIn),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        bottomNavigationBar: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: theme.dividerColor)),
-          ),
-          child: NavigationBar(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) =>
-                setState(() => _selectedIndex = index),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.explore_outlined),
-                selectedIcon: Icon(Icons.explore),
-                label: 'Keşfet',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.favorite_border),
-                selectedIcon: Icon(Icons.favorite),
-                label: 'Favoriler',
-              ),
-            ],
+          bottomNavigationBar: FloatingNavigation(
+            index: _selectedIndex,
+            onChanged: (index) => setState(() => _selectedIndex = index),
           ),
         ),
       );

@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+
+import 'app/launch/launch_intro.dart';
+
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +19,10 @@ import 'features/onboarding/data/onboarding_repository.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('tr_TR');
+  runApp(_Startup(application: _application()));
+}
+
+Future<Widget> _application() async {
   const config = SupabaseConfig.fromEnvironment();
   var problem = config.problem;
   SupabaseClient? client;
@@ -39,17 +47,37 @@ Future<void> main() async {
       problem = 'Hesap bağlantısı başlatılamadı. Yerel yapılandırmayı kontrol edip uygulamayı yeniden başlatın.';
     }
   }
-  runApp(
-    EtkinlikKesifApp(
-      themeRepository: PreferencesThemeRepository(SharedPreferencesAsync()),
-      onboardingRepository: PreferencesOnboardingRepository(
-        SharedPreferencesAsync(),
-      ),
-      authRepository: client == null ? null : SupabaseAuthRepository(client),
-      favoritesRepository: client == null
-          ? null
-          : SupabaseFavoritesRepository(client),
-      configurationMessage: problem,
+  return EtkinlikKesifApp(
+    themeRepository: PreferencesThemeRepository(SharedPreferencesAsync()),
+    onboardingRepository:
+        kDebugMode && const bool.fromEnvironment('FORCE_ONBOARDING')
+        ? PreviewOnboardingRepository()
+        : PreferencesOnboardingRepository(SharedPreferencesAsync()),
+    authRepository: client == null ? null : SupabaseAuthRepository(client),
+    favoritesRepository: client == null
+        ? null
+        : SupabaseFavoritesRepository(client),
+    configurationMessage: problem,
+  );
+}
+
+class _Startup extends StatelessWidget {
+  const _Startup({required this.application});
+  final Future<Widget> application;
+
+  @override
+  Widget build(BuildContext context) => LaunchIntro(
+    child: FutureBuilder<Widget>(
+      future: application,
+      builder: (context, snapshot) =>
+          snapshot.data ??
+          const MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              backgroundColor: Color(0xFFFAFAF8),
+              body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          ),
     ),
   );
 }

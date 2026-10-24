@@ -17,7 +17,12 @@ import 'helpers/discovery_fake.dart';
 
 Finder get listFinder => find.byKey(const PageStorageKey('events-list'));
 ScrollableState listState(WidgetTester tester) => tester.state<ScrollableState>(
-  find.descendant(of: listFinder, matching: find.byType(Scrollable)),
+  find.descendant(
+    of: listFinder,
+    matching: find.byWidgetPredicate(
+      (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+    ),
+  ),
 );
 
 Future<void> showExplore(
@@ -249,6 +254,9 @@ void main() {
       await tester.pumpAndSettle();
       listState(tester).position.jumpTo(400);
       await tester.pump();
+      // Filters now return when scrolling back toward the expanded header.
+      listState(tester).position.jumpTo(0);
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('category:Workshop')));
       await tester.pumpAndSettle();
       expect(listState(tester).position.pixels, 0);
