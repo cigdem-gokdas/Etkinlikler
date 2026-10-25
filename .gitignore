@@ -54,3 +54,7 @@ app.*.map.json
 *.pem
 *.p12
 *.p8
+
+# Local-only QA records; preserve on disk, never publish
+/docs/reports/password-auth/live-results.json
+/docs/reports/password-auth/git-status.txt

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/widgets/status_message.dart';
 import '../../../../core/widgets/skeleton.dart';
+import '../../../../core/widgets/detail_text_surface.dart';
 import '../../../auth/controllers/auth_controller.dart';
 import '../../../favorites/controllers/favorites_controller.dart';
 import '../../controllers/event_detail_controller.dart';
@@ -89,7 +90,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final detailTheme = theme.copyWith(
         colorScheme: theme.colorScheme.copyWith(
           onSurface: Colors.white,
-          onSurfaceVariant: Colors.white70,
+          onSurfaceVariant: Colors.white.withValues(alpha: .85),
           primary: const Color(0xFFC4DFC8),
           surfaceContainerHighest: const Color(0xFF3D4D45),
         ),
@@ -220,24 +221,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         ],
                         if (event.description != null) ...[
                           const SizedBox(height: 28),
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: .22),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: .12),
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: SelectableText(
-                                event.description!,
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  height: 1.6,
-                                  color: Colors.white,
-                                ),
-                              ),
+                          DetailTextSurface(
+                            child: SelectableText(
+                              event.description!,
+                              style: DetailTextSurface.textStyle,
                             ),
                           ),
                         ] else if (_controller.status ==

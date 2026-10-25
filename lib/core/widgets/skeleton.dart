@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_theme.dart';
+import 'detail_text_surface.dart';
 
 /// Static theme-based placeholders; no animation, gestures or content semantics.
 class SkeletonBlock extends StatelessWidget {
@@ -184,14 +185,40 @@ class EventDetailSkeleton extends StatelessWidget {
               const SkeletonBlock(height: 12),
               const SizedBox(height: AppSpacing.large),
             ],
-            const SkeletonBlock(),
-            const SizedBox(height: AppSpacing.small),
-            const SkeletonBlock(),
-            const SizedBox(height: AppSpacing.small),
-            const FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: .7,
-              child: SkeletonBlock(),
+            DetailTextSurface(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final painter = TextPainter(
+                    text: const TextSpan(
+                      text: 'Örnek',
+                      style: DetailTextSurface.textStyle,
+                    ),
+                    textDirection: Directionality.of(context),
+                    textScaler: MediaQuery.textScalerOf(context),
+                  )..layout(maxWidth: constraints.maxWidth);
+                  final lineHeight = painter.height;
+                  painter.dispose();
+                  final barHeight = MediaQuery.textScalerOf(context).scale(14);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var line = 0; line < 3; line++)
+                        SizedBox(
+                          height: lineHeight,
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: SkeletonBlock(
+                              key: ValueKey('detail-paragraph-line-$line'),
+                              width:
+                                  constraints.maxWidth * (line == 2 ? .7 : 1),
+                              height: barHeight,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ),
           ],
         ),

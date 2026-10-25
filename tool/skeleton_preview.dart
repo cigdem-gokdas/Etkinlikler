@@ -82,11 +82,11 @@ class _PreviewAuth implements AuthRepository {
   @override
   Stream<AuthUser?> get userChanges => const Stream.empty();
   @override
-  Future<void> sendCode(String email) async =>
-      throw const ApiException('Önizlemede e-posta gönderilmez.');
+  Future<AuthUser> signIn(String email, String password) async =>
+      throw const ApiException('Önizlemede giriş yapılmaz.');
   @override
-  Future<AuthUser> verifyCode(String email, String code) async =>
-      throw const ApiException('Önizlemede giriş doğrulanmaz.');
+  Future<AuthUser> signUp(String email, String password) async =>
+      throw const ApiException('Önizlemede hesap oluşturulmaz.');
   @override
   Future<void> signOut() async =>
       throw const ApiException('Önizleme hesabı cihazda saklanmaz.');

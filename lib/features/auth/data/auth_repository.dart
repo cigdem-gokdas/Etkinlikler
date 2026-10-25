@@ -9,8 +9,8 @@ import '../models/auth_user.dart';
 abstract interface class AuthRepository {
   AuthUser? get currentUser;
   Stream<AuthUser?> get userChanges;
-  Future<void> sendCode(String email);
-  Future<AuthUser> verifyCode(String email, String code);
+  Future<AuthUser> signIn(String email, String password);
+  Future<AuthUser> signUp(String email, String password);
   Future<void> signOut();
 }
 
@@ -31,26 +31,29 @@ class SupabaseAuthRepository implements AuthRepository {
   Stream<AuthUser?> get userChanges =>
       _client.auth.onAuthStateChange.map((state) => _user(state.session));
 
-  @override
-  Future<void> sendCode(String email) => _perform(
-    () => _client.auth.signInWithOtp(email: email, shouldCreateUser: true),
-  );
-
-  @override
-  Future<AuthUser> verifyCode(String email, String code) => _perform(() async {
-    final response = await _client.auth.verifyOTP(
-      email: email,
-      token: code,
-      type: OtpType.email,
-    );
+  AuthUser _requireSession(AuthResponse response) {
     final user = _user(response.session);
     if (user == null || _client.auth.currentSession?.user.id != user.id) {
       throw const ApiException(
-        'Oturum oluşturulamadı. Lütfen yeni bir kod isteyin.',
+        'Oturum oluşturulamadı. Hesap ayarlarını kontrol edip tekrar giriş yapın.',
       );
     }
     return user;
-  });
+  }
+
+  @override
+  Future<AuthUser> signIn(String email, String password) => _perform(
+    () async => _requireSession(
+      await _client.auth.signInWithPassword(email: email, password: password),
+    ),
+  );
+
+  @override
+  Future<AuthUser> signUp(String email, String password) => _perform(
+    () async => _requireSession(
+      await _client.auth.signUp(email: email, password: password),
+    ),
+  );
 
   @override
   Future<void> signOut() => _perform(() => _client.auth.signOut());
@@ -75,22 +78,26 @@ class SupabaseAuthRepository implements AuthRepository {
 String authErrorMessage(AuthException error) {
   if (error.statusCode == '429' ||
       const {
-        'over_email_send_rate_limit',
         'over_request_rate_limit',
+        'over_email_send_rate_limit',
       }.contains(error.code)) {
     return 'Çok fazla istek gönderildi. Bir süre bekleyip tekrar deneyin.';
   }
-  if (error.code == 'otp_expired') {
-    return 'Kod hatalı veya süresi dolmuş. Kodu kontrol edin ya da yeni bir kod isteyin.';
+  if (error.code == 'invalid_credentials') return 'E-posta veya şifre hatalı.';
+  if (const {'user_already_exists', 'email_exists'}.contains(error.code)) {
+    return 'Bu adresle hesap oluşturulamadı. Mevcut hesabınızla giriş yapmayı deneyin.';
   }
-  if (const {
-    'email_address_invalid',
-    'validation_failed',
-  }.contains(error.code)) {
+  if (error.code == 'weak_password') {
+    return 'Şifre sunucunun güvenlik koşullarını karşılamıyor. Daha uzun ve güçlü bir şifre seçin.';
+  }
+  if (const {'email_address_invalid', 'validation_failed'}.contains(error.code)) {
     return 'Geçerli bir e-posta adresi girin.';
   }
-  if (error.code == 'email_address_not_authorized') {
-    return 'E-posta sağlayıcısı bu adrese gönderime izin vermiyor. SMTP gönderici alan adını kontrol edin.';
+  if (error.code == 'email_not_confirmed') {
+    return 'Bu hesap girişe hazır değil. Proje yöneticisiyle iletişime geçin.';
+  }
+  if (error.code == 'signup_disabled') {
+    return 'Yeni hesap oluşturma şu anda kapalı.';
   }
   if (const {
     'session_not_found',
@@ -105,7 +112,7 @@ String authErrorMessage(AuthException error) {
   }
   if (error.code == 'unexpected_failure' ||
       (int.tryParse(error.statusCode ?? '') ?? 0) >= 500) {
-    return 'Giriş hizmeti veya e-posta gönderimi şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.';
+    return 'Giriş hizmeti şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.';
   }
-  return 'İşlem tamamlanamadı. E-posta adresinizi ve kodunuzu kontrol edip tekrar deneyin.';
+  return 'İşlem tamamlanamadı. E-posta adresinizi ve şifrenizi kontrol edip tekrar deneyin.';
 }

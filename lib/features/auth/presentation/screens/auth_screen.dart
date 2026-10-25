@@ -7,17 +7,17 @@ import '../../controllers/auth_controller.dart';
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key, required this.controller});
   final AuthController controller;
-
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
 class _AuthScreenState extends State<AuthScreen> {
   final _email = TextEditingController();
-  final _code = TextEditingController();
-  final _codeFocus = FocusNode();
+  final _password = TextEditingController();
+  final _confirmation = TextEditingController();
+  bool _register = false;
+  bool _showPassword = false;
   bool _closed = false;
-  bool _wasCodeSent = false;
 
   @override
   void initState() {
@@ -26,45 +26,43 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _onChanged() {
-    if (!mounted) return;
-    final auth = widget.controller;
-    if (auth.user != null && !_closed) {
+    if (mounted && widget.controller.user != null && !_closed) {
       _closed = true;
+      _password.clear();
+      _confirmation.clear();
       Navigator.of(context).pop();
-      return;
     }
-    if (auth.codeSent && !_wasCodeSent) {
-      _code.clear();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _codeFocus.requestFocus();
-      });
-    }
-    _wasCodeSent = auth.codeSent;
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onChanged);
     _email.dispose();
-    _code.dispose();
-    _codeFocus.dispose();
+    _password.dispose();
+    _confirmation.dispose();
     super.dispose();
   }
 
-  Future<void> _send() async {
+  void _switchMode() {
+    if (widget.controller.isBusy) return;
     FocusScope.of(context).unfocus();
-    await widget.controller.sendCode(_email.text);
+    _password.clear();
+    _confirmation.clear();
+    widget.controller.beginSignIn();
+    setState(() {
+      _register = !_register;
+      _showPassword = false;
+    });
   }
 
-  Future<void> _verify() async {
-    final success = await widget.controller.verifyCode(_code.text);
-    if (!success && mounted) {
-      _code.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: _code.text.length,
-      );
-      _codeFocus.requestFocus();
-    }
+  Future<void> _submit() async {
+    final auth = widget.controller;
+    if (auth.isBusy || !auth.isConfigured) return;
+    FocusScope.of(context).unfocus();
+    final success = _register
+        ? await auth.signUp(_email.text, _password.text, _confirmation.text)
+        : await auth.signIn(_email.text, _password.text);
+    if (success && mounted) TextInput.finishAutofillContext();
   }
 
   @override
@@ -73,9 +71,7 @@ class _AuthScreenState extends State<AuthScreen> {
     builder: (context, child) {
       final auth = widget.controller;
       final theme = Theme.of(context);
-      final verifying = auth.codeSent;
-      final canSend =
-          !auth.isBusy && auth.isConfigured && auth.resendSeconds == 0;
+      final enabled = auth.isConfigured && !auth.isBusy;
       return Scaffold(
         appBar: AppBar(
           backgroundColor: theme.colorScheme.surface,
@@ -95,86 +91,96 @@ class _AuthScreenState extends State<AuthScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        verifying
-                            ? 'E-postanı kontrol et'
-                            : 'Hesabına giriş yap',
+                        _register ? 'Hesap oluştur' : 'Hesabına giriş yap',
                         style: theme.textTheme.headlineLarge,
                       ),
                       const SizedBox(height: AppSpacing.medium),
                       Text(
-                        verifying
-                            ? '${auth.otpLength} haneli giriş kodunu gönderdiğimiz e-postada bulabilirsin.'
-                            : 'Etkinliklerini kaydetmek için e-posta adresini gir.',
+                        _register ? 'Etkinliklerini kendi hesabında sakla.' : 'Kaydettiğin etkinliklere kaldığın yerden devam et.',
                         style: theme.textTheme.bodyMedium,
                       ),
-                      if (verifying) ...[
-                        const SizedBox(height: AppSpacing.small),
-                        Text(
-                          auth.email ?? '',
-                          style: theme.textTheme.titleMedium,
+                      const SizedBox(height: AppSpacing.large),
+                      TextField(
+                        key: const ValueKey('email-input'),
+                        controller: _email,
+                        enabled: enabled,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.email],
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        decoration: const InputDecoration(
+                          labelText: 'E-posta',
+                          hintText: 'ornek@eposta.com',
                         ),
-                        const SizedBox(height: AppSpacing.small),
-                        Text(
-                          'Kod gelmediyse spam klasörünü de kontrol et.',
-                          style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: AppSpacing.medium),
+                      TextField(
+                        key: const ValueKey('password-input'),
+                        controller: _password,
+                        enabled: enabled,
+                        obscureText: !_showPassword,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        autofillHints: [
+                          _register
+                              ? AutofillHints.newPassword
+                              : AutofillHints.password,
+                        ],
+                        textInputAction: _register
+                            ? TextInputAction.next
+                            : TextInputAction.done,
+                        onSubmitted: (_) {
+                          if (!_register) _submit();
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Şifre',
+                          helperText: _register
+                              ? 'En az 8 karakter. Sunucunun parola kuralları geçerlidir.'
+                              : null,
+                          helperMaxLines: 2,
+                          suffixIcon: IconButton(
+                            tooltip: _showPassword
+                                ? 'Şifreyi gizle'
+                                : 'Şifreyi göster',
+                            onPressed: enabled
+                                ? () => setState(
+                                    () => _showPassword = !_showPassword,
+                                  )
+                                : null,
+                            icon: Icon(
+                              _showPassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (_register) ...[
+                        const SizedBox(height: AppSpacing.medium),
+                        TextField(
+                          key: const ValueKey('password-confirmation-input'),
+                          controller: _confirmation,
+                          enabled: enabled,
+                          obscureText: !_showPassword,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          autofillHints: const [AutofillHints.newPassword],
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _submit(),
+                          decoration: const InputDecoration(
+                            labelText: 'Şifre tekrar',
+                          ),
                         ),
                       ],
-                      const SizedBox(height: AppSpacing.large),
-                      if (verifying)
-                        TextField(
-                          key: const ValueKey('otp-input'),
-                          controller: _code,
-                          focusNode: _codeFocus,
-                          enabled: !auth.isBusy,
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.done,
-                          autofillHints: const [AutofillHints.oneTimeCode],
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          maxLength: auth.otpLength,
-                          maxLengthEnforcement: MaxLengthEnforcement.none,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            letterSpacing: 8,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: '${auth.otpLength} haneli kod',
-                            counterText: '',
-                          ),
-                          onSubmitted: (_) {
-                            if (!auth.isBusy) _verify();
-                          },
-                        )
-                      else
-                        TextField(
-                          key: const ValueKey('email-input'),
-                          controller: _email,
-                          autofocus: auth.isConfigured,
-                          enabled: !auth.isBusy && auth.isConfigured,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.done,
-                          autofillHints: const [AutofillHints.email],
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          decoration: const InputDecoration(
-                            labelText: 'E-posta adresi',
-                            hintText: 'ornek@eposta.com',
-                          ),
-                          onSubmitted: (_) {
-                            if (canSend) _send();
-                          },
-                        ),
                       if (!auth.isConfigured || auth.errorMessage != null) ...[
                         const SizedBox(height: AppSpacing.medium),
                         Semantics(
                           liveRegion: true,
                           child: Text(
-                            auth.errorMessage ??
-                                auth.setupMessage ??
-                                'Supabase yapılandırması eksik.',
+                            !auth.isConfigured
+                                ? 'Hesap bağlantısı şu anda kullanılamıyor. Etkinlikleri giriş yapmadan keşfedebilirsin.'
+                                : auth.errorMessage!,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.error,
                             ),
@@ -183,9 +189,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       ],
                       const SizedBox(height: AppSpacing.page),
                       FilledButton(
-                        onPressed: verifying
-                            ? (auth.isBusy ? null : _verify)
-                            : (canSend ? _send : null),
+                        onPressed: enabled ? _submit : null,
                         child: auth.isBusy
                             ? SizedBox.square(
                                 dimension: 20,
@@ -194,36 +198,22 @@ class _AuthScreenState extends State<AuthScreen> {
                                   color: theme.colorScheme.onPrimary,
                                 ),
                               )
-                            : Text(
-                                verifying
-                                    ? 'Doğrula'
-                                    : (auth.resendSeconds > 0
-                                          ? 'Kod gönder (${auth.resendSeconds} sn)'
-                                          : 'Kod gönder'),
-                              ),
+                            : Text(_register ? 'Hesap Oluştur' : 'Giriş Yap'),
                       ),
-                      if (verifying) ...[
-                        const SizedBox(height: AppSpacing.small),
-                        TextButton(
-                          onPressed: canSend
-                              ? () => auth.sendCode(auth.email!)
-                              : null,
-                          child: Text(
-                            auth.resendSeconds > 0
-                                ? 'Kodu tekrar gönder (${auth.resendSeconds} sn)'
-                                : 'Kodu tekrar gönder',
-                          ),
+                      const SizedBox(height: AppSpacing.small),
+                      TextButton(
+                        onPressed: enabled ? _switchMode : null,
+                        child: Text(
+                          _register
+                              ? 'Zaten hesabın var mı? Giriş Yap'
+                              : 'Hesabın yok mu? Kayıt Ol',
                         ),
+                      ),
+                      if (!auth.isConfigured)
                         TextButton(
-                          onPressed: auth.isBusy
-                              ? null
-                              : () {
-                                  _code.clear();
-                                  auth.useDifferentEmail();
-                                },
-                          child: const Text('Farklı e-posta kullan'),
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          child: const Text('Keşfet’e dön'),
                         ),
-                      ],
                     ],
                   ),
                 ),

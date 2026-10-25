@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
 
-import '../core/config/otp_config.dart';
 import '../core/network/api_client.dart';
 import '../features/auth/controllers/auth_controller.dart';
 import '../features/auth/data/auth_repository.dart';
@@ -35,7 +34,6 @@ class EtkinlikKesifApp extends StatefulWidget {
     this.authRepository,
     this.favoritesRepository,
     this.configurationMessage,
-    this.otpConfig = const OtpConfig(),
     this.onboardingRepository,
     this.themeRepository,
   });
@@ -44,7 +42,6 @@ class EtkinlikKesifApp extends StatefulWidget {
   final AuthRepository? authRepository;
   final FavoritesRepository? favoritesRepository;
   final String? configurationMessage;
-  final OtpConfig otpConfig;
   final OnboardingRepository? onboardingRepository;
   final ThemeRepository? themeRepository;
 
@@ -78,7 +75,6 @@ class _EtkinlikKesifAppState extends State<EtkinlikKesifApp> {
     _auth = AuthController(
       repository: widget.authRepository,
       configurationMessage: widget.configurationMessage,
-      otpConfig: widget.otpConfig,
     );
     _favorites = FavoritesController(widget.favoritesRepository);
     _auth.addListener(_syncFavorites);

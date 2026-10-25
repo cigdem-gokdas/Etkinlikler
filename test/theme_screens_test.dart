@@ -39,7 +39,7 @@ void main() {
     });
 
     testWidgets(
-      '${mode.name}: onboarding/auth/OTP/hesap/favoriler/detay/empty/error teması korunur',
+      '${mode.name}: onboarding/auth/signup/hesap/favoriler/detay/empty/error teması korunur',
       (tester) async {
         final repo = DiscoveryFake(
           (_) async => testPage(['a'], total: 1, hasMore: false),
@@ -78,20 +78,21 @@ void main() {
           find.byKey(const ValueKey('email-input')),
           'a@example.com',
         );
-        await tester.tap(find.text('Kod gönder'));
+        await tester.tap(find.text('Hesabın yok mu? Kayıt Ol'));
         await tester.pumpAndSettle();
-        expectTheme(find.text('E-postanı kontrol et'));
-        expect(
-          find.text('Kod gelmediyse spam klasörünü de kontrol et.'),
-          findsOneWidget,
+        expectTheme(find.text('Hesap oluştur'));
+        await tester.enterText(
+          find.byKey(const ValueKey('password-input')),
+          'fixture password',
         );
         await tester.enterText(
-          find.byKey(const ValueKey('otp-input')),
-          '012345',
+          find.byKey(const ValueKey('password-confirmation-input')),
+          'fixture password',
         );
-        await tester.tap(find.text('Doğrula'));
+        await tester.ensureVisible(find.text('Hesap Oluştur'));
+        await tester.tap(find.text('Hesap Oluştur'));
         await tester.pumpAndSettle();
-        expect(auth.lastVerifiedCode, '012345');
+        expect(auth.signUps, 1);
         await tester.tap(find.byTooltip('Hesabım'));
         await tester.pumpAndSettle();
         expectTheme(find.text('Çıkış yap'));

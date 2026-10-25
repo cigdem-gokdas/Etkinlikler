@@ -56,65 +56,49 @@ http.Response jsonResponse(Object? body, [int status = 200]) => http.Response(
 );
 
 void main() {
-  test(
-    'SDK kod gönderirken yeni hesap oluşturmayı açar; oturum oluşturmaz',
-    () async {
-      final client = testClient((request) async {
-        expect(request.url.path, '/auth/v1/otp');
-        final json = jsonDecode(request.body) as Map<String, Object?>;
-        expect(json['create_user'], isTrue);
-        expect(json['email'], 'test@example.com');
-        return jsonResponse({});
-      });
-      final repository = SupabaseAuthRepository(client);
-      await repository.sendCode('test@example.com');
-      expect(repository.currentUser, isNull);
-    },
-  );
-
-  test(
-    'SDK verifyOTP email tipiyle gerçek Session oluşumunu kontrol eder',
-    () async {
-      final client = testClient((request) async {
-        expect(request.url.path, '/auth/v1/verify');
-        expect(
-          (jsonDecode(request.body) as Map<String, Object?>)['type'],
-          'email',
+  for (final signup in [false, true]) {
+    test(
+      'SDK ${signup ? 'signup' : 'signin'} uses password endpoint and requires a real session',
+      () async {
+        final client = testClient((request) async {
+          expect(
+            request.url.path,
+            signup ? '/auth/v1/signup' : '/auth/v1/token',
+          );
+          if (!signup) {
+            expect(request.url.queryParameters['grant_type'], 'password');
+          }
+          final body = jsonDecode(request.body) as Map<String, Object?>;
+          expect(body['email'], 'test@example.com');
+          expect(body['password'], '  fixture password  ');
+          return jsonResponse(sessionJson(userA.id));
+        });
+        final r = SupabaseAuthRepository(client);
+        final user = signup
+            ? await r.signUp('test@example.com', '  fixture password  ')
+            : await r.signIn('test@example.com', '  fixture password  ');
+        expect(user.id, userA.id);
+        expect(r.currentUser?.id, userA.id);
+        expect(client.auth.currentSession, isNotNull);
+      },
+    );
+    test(
+      'SDK ${signup ? 'signup' : 'signin'} with user but no session is not successful login',
+      () async {
+        final client = testClient(
+          (_) async => jsonResponse({'user': sessionJson(userA.id)['user']}),
         );
-        return jsonResponse(sessionJson(userA.id));
-      });
-      final repository = SupabaseAuthRepository(client);
-      final user = await repository.verifyCode('test@example.com', '123456');
-      expect(client.auth.currentSession, isNotNull);
-      expect(user.id, userA.id);
-      expect(repository.currentUser?.id, userA.id);
-    },
-  );
-
-  test('verify yanıtında Session yoksa başarılı giriş sayılmaz', () async {
-    final client = testClient(
-      (_) async => jsonResponse({'user': sessionJson(userA.id)['user']}),
+        final r = SupabaseAuthRepository(client);
+        await expectLater(
+          signup
+              ? r.signUp('test@example.com', 'fixture password')
+              : r.signIn('test@example.com', 'fixture password'),
+          throwsA(isA<ApiException>()),
+        );
+        expect(r.currentUser, isNull);
+      },
     );
-    await expectLater(
-      SupabaseAuthRepository(client).verifyCode('test@example.com', '123456'),
-      throwsA(isA<ApiException>()),
-    );
-    expect(client.auth.currentSession, isNull);
-  });
-
-  test(
-    'sekiz haneli sentetik OTP baştaki sıfırlarla SDK isteğine aynen gider',
-    () async {
-      final client = testClient((request) async {
-        final body = jsonDecode(request.body) as Map<String, Object?>;
-        expect(body['token'], '00123456');
-        expect(body['type'], 'email');
-        return jsonResponse(sessionJson(userA.id));
-      });
-      await SupabaseAuthRepository(client)
-          .verifyCode('test@example.com', '00123456');
-    },
-  );
+  }
 
   test(
     'DELETE başarılı görünse bile kayıt duruyorsa sahte başarı verilmez',
@@ -153,10 +137,12 @@ void main() {
   });
 
   for (final entry in {
-    'otp_expired': 'Kod hatalı veya süresi dolmuş',
+    'invalid_credentials': 'E-posta veya şifre hatalı',
+    'weak_password': 'güvenlik koşullarını',
+    'user_already_exists': 'Mevcut hesabınızla giriş',
     'over_email_send_rate_limit': 'Çok fazla istek',
-    'email_address_not_authorized': 'gönderime izin vermiyor',
-    'unexpected_failure': 'e-posta gönderimi',
+    'email_not_confirmed': 'hesap girişe hazır değil',
+    'unexpected_failure': 'Giriş hizmeti',
     'session_expired': 'tekrar giriş',
   }.entries) {
     test('auth hata kodu güvenli Türkçe mesaja çevrilir: ${entry.key}', () {

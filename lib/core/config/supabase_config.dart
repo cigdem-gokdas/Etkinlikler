@@ -2,8 +2,20 @@ class SupabaseConfig {
   const SupabaseConfig({required this.url, required this.publishableKey});
 
   const SupabaseConfig.fromEnvironment()
-    : url = const String.fromEnvironment('SUPABASE_URL'),
-      publishableKey = const String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+    : url = const String.fromEnvironment(
+        'SUPABASE_URL',
+        defaultValue: publicDemoUrl,
+      ),
+      publishableKey = const String.fromEnvironment(
+        'SUPABASE_PUBLISHABLE_KEY',
+        defaultValue: publicDemoPublishableKey,
+      );
+
+  // Public client settings only. Authorization still requires a user session
+  // and server-side RLS. Explicit (including empty) Dart defines take priority.
+  static const publicDemoUrl = "https://ldxlanrtzafwbffdmnhv.supabase.co";
+  static const publicDemoPublishableKey =
+      "sb_publishable_Dt-ySutFmHwJEQT4SpP8VQ_W9EnpNt6";
 
   final String url;
   final String publishableKey;

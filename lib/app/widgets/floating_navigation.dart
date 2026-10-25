@@ -22,20 +22,14 @@ class FloatingNavigation extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: theme.dividerColor),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .06),
-              blurRadius: 18,
-              offset: const Offset(0, 5),
-            ),
-          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: NavigationBar(
             height: 68,
             elevation: 0,
-            backgroundColor: theme.colorScheme.surfaceContainerLow,
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
             selectedIndex: index,
             onDestinationSelected: onChanged,
             destinations: const [

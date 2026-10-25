@@ -130,6 +130,7 @@ class EventsController extends ChangeNotifier {
   Future<void> _fetchFirst(int generation) async {
     if (!_isCurrent(generation)) return;
     _activity = _page == 0 ? EventsActivity.initial : EventsActivity.refreshing;
+    if (_page == 0) _status = EventsStatus.loading;
     _errorMessage = null;
     _paginationError = null;
     notifyListeners();

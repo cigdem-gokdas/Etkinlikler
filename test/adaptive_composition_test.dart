@@ -68,7 +68,8 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(composition(ControlledImage()));
-    expect(find.byIcon(Icons.landscape_outlined), findsOneWidget);
+    expect(find.byKey(const ValueKey('detail-image-fallback')), findsOneWidget);
+    expect(find.byType(Icon), findsNothing);
     expect(find.text('API başlığı · Konum · Açıklama'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -78,7 +79,11 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(composition(null, url: url));
-      expect(find.byIcon(Icons.image_not_supported_outlined), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('detail-image-fallback')),
+        findsOneWidget,
+      );
+      expect(find.byType(Icon), findsNothing);
       expect(find.text('API başlığı · Konum · Açıklama'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -91,7 +96,8 @@ void main() {
     await tester.pumpWidget(composition(provider));
     provider.fail();
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.image_not_supported_outlined), findsOneWidget);
+    expect(find.byKey(const ValueKey('detail-image-fallback')), findsOneWidget);
+    expect(find.byType(Icon), findsNothing);
     expect(find.byKey(const ValueKey('event-detail-scroll')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

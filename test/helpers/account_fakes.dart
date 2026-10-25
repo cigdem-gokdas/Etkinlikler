@@ -12,12 +12,11 @@ class FakeAuthRepository implements AuthRepository {
   FakeAuthRepository({this.user});
   AuthUser? user;
   final changes = StreamController<AuthUser?>.broadcast(sync: true);
-  int sends = 0;
-  int verifications = 0;
-  String? lastVerifiedCode;
+  int signIns = 0;
+  int signUps = 0;
   int signOuts = 0;
-  Future<void> Function()? onSend;
-  Future<AuthUser> Function()? onVerify;
+  Future<AuthUser> Function()? onSignIn;
+  Future<AuthUser> Function()? onSignUp;
 
   void emit(AuthUser? user) {
     this.user = user;
@@ -29,18 +28,19 @@ class FakeAuthRepository implements AuthRepository {
   @override
   Stream<AuthUser?> get userChanges => changes.stream;
   @override
-  Future<void> sendCode(String email) async {
-    sends++;
-    await onSend?.call();
+  Future<AuthUser> signIn(String email, String password) async {
+    signIns++;
+    final result = await (onSignIn?.call() ?? Future.value(userA));
+    emit(result);
+    return result;
   }
 
   @override
-  Future<AuthUser> verifyCode(String email, String code) async {
-    verifications++;
-    lastVerifiedCode = code;
-    final user = await (onVerify?.call() ?? Future.value(userA));
-    emit(user);
-    return user;
+  Future<AuthUser> signUp(String email, String password) async {
+    signUps++;
+    final result = await (onSignUp?.call() ?? Future.value(userA));
+    emit(result);
+    return result;
   }
 
   @override

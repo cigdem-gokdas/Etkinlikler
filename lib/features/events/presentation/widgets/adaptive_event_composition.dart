@@ -125,12 +125,11 @@ class _AdaptiveEventCompositionState extends State<AdaptiveEventComposition> {
     final image = _frame?.image;
     final ratio = image == null ? 16 / 9 : image.width / image.height;
     final mode = presentationFor(ratio);
-    // Keep the established landscape atmosphere; portrait images need less
-    // softening because their composition already matches the viewport.
+    // Retain a little softness without losing the photograph's details.
     final sigma = switch (mode) {
-      ImagePresentation.landscape => 5.0,
-      ImagePresentation.square => 3.0,
-      ImagePresentation.portrait => 1.0,
+      ImagePresentation.landscape => 1.3,
+      ImagePresentation.square => .8,
+      ImagePresentation.portrait => .4,
     };
     return LayoutBuilder(
       builder: (context, bounds) {
@@ -161,20 +160,15 @@ class _AdaptiveEventCompositionState extends State<AdaptiveEventComposition> {
                         ),
                       )
                     else
-                      Center(
-                        child: Icon(
-                          _failed
-                              ? Icons.image_not_supported_outlined
-                              : Icons.landscape_outlined,
-                          size: 40,
-                          color: Colors.white24,
-                        ),
+                      const ColoredBox(
+                        key: ValueKey('detail-image-fallback'),
+                        color: Color(0xFF14251F),
                       ),
-                    // Retains the existing atmosphere and guarantees white text
-                    // contrast >4.5:1 even over a pure-white source photograph.
+                    // A lighter scrim keeps the picture visible while white
+                    // and mint text retain >=4.5:1 over a white photograph.
                     const ColoredBox(
                       key: ValueKey('detail-scrim'),
-                      color: Color(0xB8000000),
+                      color: Color(0xA3000000),
                     ),
                   ],
                 ),
